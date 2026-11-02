@@ -2,7 +2,8 @@ name: Facebook Marketplace Diagnostic
 
 on:
   workflow_dispatch:
-
+permissions:
+  contents: read
 jobs:
   diagnose:
     runs-on: ubuntu-24.04
