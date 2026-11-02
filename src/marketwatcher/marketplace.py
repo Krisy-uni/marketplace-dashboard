@@ -26,7 +26,7 @@ class MarketplaceBrowser:
 
     def start(self) -> None:
         self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(channel="chrome", headless=self._config.headless)
+        self._browser = self._playwright.chromium.launch(channel=None if __import__("os").environ.get("GITHUB_ACTIONS") == "true" else "chrome", headless=self._config.headless)
         self._context = self._make_context()
         log.info("Browser started (headless=%s)", self._config.headless)
 
