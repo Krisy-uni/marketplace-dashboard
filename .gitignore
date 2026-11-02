@@ -11,3 +11,48 @@ __pycache__/
 .venv/
 browser_state.json
 storage_state.json
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+
+# Config with credentials
+config.yaml
+
+# Runtime data
+data/browser_state.json
+data/seen_listings.json
+
+# Logs
+logs/*.log
+
+# Build
+*.egg-info/
+dist/
+build/
+
+# Private Telegram settings
+telegram_secrets.json
+data/notified_listings.json
+
+# Local backups
+*.backup
+*.before_*
+*.bak
+
+# Additional private files
+.env
+.env.*
+*.session
+*storage_state*.json
+
+# Generated dashboard data
+dashboard/listings.json
+dashboard/index.html

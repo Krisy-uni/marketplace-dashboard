@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manage Monitors</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#f5f6f8;color:#20242a;margin:0}
+header{background:white;padding:22px;border-bottom:1px solid #ddd}
+main{max-width:850px;margin:25px auto;padding:0 16px}
+h1{margin:0 0 8px;font-size:24px}
+a{color:#2563eb;text-decoration:none}
+.card{background:white;padding:18px;border-radius:14px;margin-bottom:12px;box-shadow:0 2px 8px #0001}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+button{padding:10px 15px;border:1px solid #ddd;border-radius:9px;background:white;cursor:pointer}
+.primary{background:#20242a;color:white}
+.danger{color:#c0392b}
+input{padding:11px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;width:100%}
+label{display:block;margin:12px 0 5px}
+small{color:#777}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+#editor{display:none}
+#message{margin:12px 0}
+select{padding:11px;border:1px solid #ccc;border-radius:8px;width:100%;box-sizing:border-box;background:white}
+</style>
+</head>
+<body>
+<header>
+<h1>Manage Monitors</h1>
+<a href="/">← Back to Dashboard</a>
+</header>
+<main>
+<div class="row">
+<h2>My Monitors</h2>
+<button class="primary" onclick="addMonitor()">+ Add Monitor</button>
+</div>
+<p id="message"></p>
+<div id="monitors"></div>
+
+<div id="editor" class="card">
+<h2 id="editorTitle">Edit Monitor</h2>
+<label>Category Name</label>
+<input id="name" placeholder="e.g. Office Chair">
+<label>Search Keyword</label>
+<input id="keyword" placeholder="e.g. office chair">
+
+
+
+<div id="currentLocation">
+  <p id="locationStatus">Location permission required.</p>
+  <button type="button" onclick="locateMe()">Get My Location</button>
+</div>
+
+<label>Search Radius</label>
+<select id="radius">
+  <option value="5">5 km</option>
+  <option value="10">10 km</option>
+  <option value="20" selected>20 km</option>
+  <option value="40">40 km</option>
+  <option value="100">100 km</option>
+</select>
+
+<label>Maximum Price (AUD)</label>
+
+<input id="price" type="number" min="0" max="100000">
+<div class="actions" style="margin-top:18px">
+<button class="primary" onclick="saveEdit()">Save Changes</button>
+<button onclick="closeEditor()">Cancel</button>
+</div>
+</div>
+</main>
+<script>
+let monitors=[];
+let editing=-1;
+
+function keywordFromUrl(url){
+  try{return new URL(url).searchParams.get("query")||""}
+  catch{return ""}
+}
+
+async function load(){
+  const response=await fetch("/api/monitors");
+  if(!response.ok)throw new Error("Could not load monitors");
+  monitors=await response.json();
+  render();
+}
+
+function render(){
+  const container=document.getElementById("monitors");
+  container.replaceChildren();
+
+  monitors.forEach((m,i)=>{
+    const card=document.createElement("div");
+    card.className="card";
+
+    const title=document.createElement("h3");
+    title.textContent=m.name;
+
+    const info=document.createElement("p");
+    info.textContent=`${keywordFromUrl(m.marketplace_url)} · Max AU$${m.max_price}`;
+
+    const actions=document.createElement("div");
+    actions.className="actions";
+
+    function action(label,fn,cls=""){
+      const b=document.createElement("button");
+      b.textContent=label;
+      b.className=cls;
+      b.onclick=fn;
+      actions.appendChild(b);
+    }
+
+    action("Edit",()=>editMonitor(i));
+    action(m.enabled?"Pause":"Resume",()=>toggleMonitor(i));
+    action("Delete",()=>deleteMonitor(i),"danger");
+
+    card.append(title,info,actions);
+    container.appendChild(card);
+  });
+}
+
+function addMonitor(){
+  selectedCoordinates=null;
+  editing=-1;
+  document.getElementById("editorTitle").textContent="Add Monitor";
+  document.getElementById("name").value="";
+  document.getElementById("keyword").value="";
+  document.getElementById("price").value="";
+  document.getElementById("editor").style.display="block";
+}
+
+function editMonitor(i){
+  selectedCoordinates=null;
+  editing=i;
+  const m=monitors[i];
+  document.getElementById("radius").value=String(m.radius_km ?? 20);
+  document.getElementById("editorTitle").textContent="Edit Monitor: " + m.name;
+  document.getElementById("name").value=m.name;
+  document.getElementById("keyword").value=keywordFromUrl(m.marketplace_url);
+  document.getElementById("price").value=m.max_price;
+  document.getElementById("editor").style.display="block";
+}
+
+function closeEditor(){
+  document.getElementById("editor").style.display="none";
+}
+
+async function persist(next){
+  const payload=next.map(m=>({
+    name:m.name,
+    keyword:keywordFromUrl(m.marketplace_url),
+    max_price:m.max_price,
+    enabled:m.enabled,
+    location_mode:m.location_mode || "current",
+    radius_km:m.radius_km ?? 20,
+    latitude:m.latitude ?? null,
+    longitude:m.longitude ?? null
+  }));
+  const response=await fetch("/api/monitors",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload)
+  });
+  const result=await response.json();
+  if(!response.ok)throw new Error(result.error||"Save failed");
+  await load();
+  document.getElementById("message").textContent="Changes saved successfully.";
+}
+
+async function saveEdit(){
+  const name=document.getElementById("name").value.trim();
+  const keyword=document.getElementById("keyword").value.trim();
+  const price=Number(document.getElementById("price").value);
+  if(!name||!keyword||!Number.isFinite(price)||price<0||price>100000){
+    alert("Please enter a valid name, keyword and price.");
+    return;
+  }
+  const next=structuredClone(monitors);
+  const item={
+    ...(editing === -1 ? {} : next[editing]),
+    name,
+    marketplace_url:"https://www.facebook.com/marketplace/brisbane/search?query="+encodeURIComponent(keyword),
+    max_price:price,
+    enabled:true
+  };
+  const radius = Number(document.getElementById("radius").value);
+
+  if(editing===-1){
+    item.location_mode="current";
+    item.radius_km=radius;
+    item.latitude=selectedCoordinates?.latitude ?? null;
+    item.longitude=selectedCoordinates?.longitude ?? null;
+    next.push(item);
+  }else{
+    item.enabled=next[editing].enabled;
+    item.location_mode="current";
+    item.radius_km=radius;
+    item.latitude=selectedCoordinates?.latitude
+      ?? next[editing].latitude ?? null;
+    item.longitude=selectedCoordinates?.longitude
+      ?? next[editing].longitude ?? null;
+    next[editing]=item;
+  }
+  try{await persist(next);closeEditor()}
+  catch(e){alert(e.message)}
+}
+
+async function toggleMonitor(i){
+  const next=structuredClone(monitors);
+  next[i].enabled=!next[i].enabled;
+  try{await persist(next)}catch(e){alert(e.message)}
+}
+
+async function deleteMonitor(i){
+  if(!confirm(`Delete ${monitors[i].name}?`))return;
+  const next=monitors.filter((_,index)=>index!==i);
+  try{await persist(next)}catch(e){alert(e.message)}
+}
+
+load().catch(e=>document.getElementById("message").textContent=e.message);
+
+let selectedCoordinates = null;
+
+
+
+function locateMe() {
+  const status = document.getElementById("locationStatus");
+
+  if (!navigator.geolocation) {
+    status.textContent = "Geolocation is not supported.";
+    return;
+  }
+
+  status.textContent = "Locating...";
+
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      selectedCoordinates = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+      };
+      status.textContent = "Current location obtained.";
+    },
+    error => {
+      status.textContent = "Location unavailable: " + error.message;
+    },
+    {enableHighAccuracy: false, timeout: 15000}
+  );
+}
+
+</script>
+</body>
+</html>
