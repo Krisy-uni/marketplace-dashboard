@@ -1,0 +1,13 @@
+# Never commit account sessions, credentials or generated state
+.env
+.env.*
+!.env.example
+config/searches.json
+data/
+logs/
+*.sqlite
+*.db
+__pycache__/
+.venv/
+browser_state.json
+storage_state.json
