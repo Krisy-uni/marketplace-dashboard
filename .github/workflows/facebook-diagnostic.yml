@@ -1,0 +1,60 @@
+name: Facebook Marketplace Diagnostic
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Diagnose public Marketplace access
+        run: |
+          python - <<'PY'
+          from playwright.sync_api import sync_playwright
+
+          urls = {
+              "Marketplace home":
+                  "https://www.facebook.com/marketplace/",
+              "Brisbane search":
+                  "https://www.facebook.com/marketplace/brisbane/search?query=office%20chair",
+              "Mobile search":
+                  "https://m.facebook.com/marketplace/brisbane/search?query=office%20chair",
+          }
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              page = browser.new_page()
+
+              for label, url in urls.items():
+                  print(f"\nTEST: {label}")
+                  try:
+                      response = page.goto(
+                          url, wait_until="domcontentloaded",
+                          timeout=45000
+                      )
+                      page.wait_for_timeout(3000)
+
+                      print("HTTP:", response.status if response else "None")
+                      print("Final URL:", page.url.split("?")[0])
+                      print("Listing links:",
+                            page.locator('a[href*="/marketplace/item/"]').count())
+                      print("Login page:",
+                            "login" in page.url.lower())
+                  except Exception as exc:
+                      print("Error:", type(exc).__name__)
+
+              browser.close()
+          PY
