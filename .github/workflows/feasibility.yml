@@ -1,0 +1,23 @@
+name: Marketplace feasibility - manual only
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: marketplace-feasibility
+  cancel-in-progress: false
+jobs:
+  browser-smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Playwright and Chromium
+        run: |
+          python -m pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Verify browser can launch (no Facebook login)
+        run: python monitor/smoke_test.py
