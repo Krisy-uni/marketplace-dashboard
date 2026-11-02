@@ -1,0 +1,23 @@
+name: Marketplace public access diagnostic - manual only
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: marketplace-public-access-diagnostic
+  cancel-in-progress: false
+jobs:
+  public-access-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Playwright
+        run: |
+          python -m pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Check logged-out public Marketplace accessibility once
+        run: python monitor/public_access_test.py
