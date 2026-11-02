@@ -1,0 +1,11 @@
+{
+  "searches": [
+    {
+      "name": "Ergonomic Office Chair",
+      "query": "ergonomic office chair",
+      "max_price_aud": 100,
+      "location": "Brisbane, QLD",
+      "enabled": true
+    }
+  ]
+}
