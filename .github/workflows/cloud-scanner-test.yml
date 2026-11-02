@@ -1,0 +1,45 @@
+name: Cloud Scanner Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Test scanner browser
+        env:
+          PYTHONPATH: src
+        run: |
+          python - <<'PY'
+          from marketwatcher.models import ScannerConfig
+          from marketwatcher.marketplace import MarketplaceBrowser
+
+          browser = MarketplaceBrowser(ScannerConfig())
+          try:
+              browser.start()
+              page = browser.open_url(
+                  "https://www.facebook.com/marketplace/brisbane/"
+              )
+              print("Final URL:", page.url.split("?")[0])
+              print(
+                  "Listing links:",
+                  page.locator('a[href*="/marketplace/item/"]').count()
+              )
+              page.close()
+          finally:
+              browser.close()
+          PY
