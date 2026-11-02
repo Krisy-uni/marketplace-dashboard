@@ -2,8 +2,8 @@ name: Marketplace Public Data Test
 
 on:
   workflow_dispatch:
-
-jobs:
+permissions:
+  contents: readjobs:
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
