@@ -1,0 +1,70 @@
+name: Cloud Facebook Session Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.repository == 'Krisy-uni/marketplace-dashboard' && github.ref == 'refs/heads/feature/dashboard-integration'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Test authenticated Marketplace access
+        env:
+          FB_BROWSER_STATE: ${{ secrets.FB_BROWSER_STATE }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+
+          state = json.loads(os.environ["FB_BROWSER_STATE"])
+          state_path = Path("/tmp/facebook-session.json")
+          state_path.write_text(json.dumps(state))
+          del state
+
+          try:
+              with sync_playwright() as p:
+                  browser = p.chromium.launch(headless=True)
+                  context = browser.new_context(
+                      storage_state=str(state_path),
+                      locale="en-AU",
+                      timezone_id="Australia/Brisbane",
+                  )
+                  page = context.new_page()
+                  page.goto(
+                      "https://www.facebook.com/marketplace/brisbane/",
+                      wait_until="domcontentloaded",
+                      timeout=60000,
+                  )
+                  page.wait_for_timeout(8000)
+
+                  print("Final URL:", page.url.split("?")[0])
+                  print(
+                      "Listing links:",
+                      page.locator(
+                          'a[href*="/marketplace/item/"]'
+                      ).count(),
+                  )
+
+                  context.close()
+                  browser.close()
+          finally:
+              state_path.unlink(missing_ok=True)
+          PY
